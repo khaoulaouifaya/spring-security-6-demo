@@ -6,7 +6,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -20,36 +19,40 @@ import java.util.Date;
 import java.util.stream.Collectors;
 
 public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilter {
-     private AuthenticationManager authenticationManager;
+    private final AuthenticationManager authenticationManager;
 
     public JwtAuthenticationFilter(AuthenticationManager authenticationManager) {
         this.authenticationManager = authenticationManager;
     }
+
     @Override
     public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response) throws AuthenticationException {
+        System.out.println("inside attemptAuthentication method");
 
-        System.out.println("inside attemptAuthentication methode");
         String username = request.getParameter("username");
         String password = request.getParameter("password");
+
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username, password);
-        return authenticationManager.authenticate(authenticationToken);
+        return authenticationManager.authenticate(authenticationToken); // Effectue l'authentification avec AuthenticationManager
     }
 
     @Override
     protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain, Authentication authResult) throws IOException, ServletException {
-        System.out.println("inside successfulAuthentication methode");
-        System.out.println("Autentification succesfull");
+        System.out.println("inside successfulAuthentication method");
+        System.out.println("Authentication successful");
+
         User user = (User) authResult.getPrincipal();
         Algorithm algorithm = Algorithm.HMAC256("mySecret123");
-        String jtwToken = JWT.create()
+
+        String jwtToken = JWT.create()
                 .withSubject(user.getUsername())
-                .withExpiresAt(new Date(System.currentTimeMillis() + 5 * 60 * 1000))
-                .withIssuer(request.getRequestURI().toUpperCase())
-                .withClaim("roles", user.getAuthorities().stream().map(
-                        GrantedAuthority::getAuthority
-                ).collect(Collectors.toList()))
+                .withExpiresAt(new Date(System.currentTimeMillis() + 5 * 60 * 1000)) // Expiration dans 5 minutes
+                .withIssuer(request.getRequestURI().toUpperCase()) // L'émetteur du jeton
+                .withClaim("roles", user.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .collect(Collectors.toList())) // Récupère les rôles de l'utilisateur
                 .sign(algorithm);
 
-       response.setHeader("Bearer ", jtwToken);
+        response.setHeader("Authorization", "Bearer " + jwtToken); // Définit l'en-tête Authorization avec le token
     }
 }
