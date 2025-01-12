@@ -5,6 +5,7 @@ import com.spring_security_6_demo.dao.RoleRepository;
 import com.spring_security_6_demo.entities.Role;
 import com.spring_security_6_demo.entities.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -50,5 +51,10 @@ public class AccountServiceImpl implements UserService{
     @Override
     public List<Role> getAllRoles() {
         return roleRepository.findAll();
+    }
+
+    @Override
+    public User loadUserByUsername(String username) {
+        return userRepository.findByUsername(username);
     }
 }
