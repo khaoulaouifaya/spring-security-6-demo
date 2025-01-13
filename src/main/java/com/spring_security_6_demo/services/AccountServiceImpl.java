@@ -4,12 +4,13 @@ import com.spring_security_6_demo.dao.AppUserRepository;
 import com.spring_security_6_demo.dao.RoleRepository;
 import com.spring_security_6_demo.entities.Role;
 import com.spring_security_6_demo.entities.User;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -54,7 +55,13 @@ public class AccountServiceImpl implements UserService{
     }
 
     @Override
-    public User loadUserByUsername(String username) {
-        return userRepository.findByUsername(username);
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        User user = userRepository.findByUsername(username);
+
+        return org.springframework.security.core.userdetails.User
+                .withUsername(user.getUsername())
+                .password(user.getPassword())
+                .roles(user.getRoles().stream().map(Role::getRole).toArray(String[]::new)) // ou les rôles appropriés
+                .build();
     }
 }

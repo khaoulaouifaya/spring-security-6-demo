@@ -33,8 +33,12 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
         String password = request.getParameter("password");
 
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username, password);
-        return authenticationManager.authenticate(authenticationToken); // Effectue l'authentification avec AuthenticationManager
-    }
+
+        Authentication result = authenticationManager.authenticate(authenticationToken);
+        System.out.println("Authentication successful for user: " + username);
+        return result;
+
+         }
 
     @Override
     protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain, Authentication authResult) throws IOException, ServletException {
@@ -53,6 +57,10 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
                         .collect(Collectors.toList())) // Récupère les rôles de l'utilisateur
                 .sign(algorithm);
 
-        response.setHeader("Authorization", "Bearer " + jwtToken); // Définit l'en-tête Authorization avec le token
+        response.setHeader("Authorization", "Bearer " + jwtToken);
+        // Définit l'en-tête Authorization avec le token
+      response.setStatus(HttpServletResponse.SC_OK);
+      // chain.doFilter(request, response);
+
     }
 }

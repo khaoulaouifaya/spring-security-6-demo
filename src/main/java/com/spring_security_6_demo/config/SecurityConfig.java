@@ -1,89 +1,68 @@
 package com.spring_security_6_demo.config;
-
-import com.spring_security_6_demo.entities.User;
 import com.spring_security_6_demo.filters.JwtAuthenticationFilter;
 import com.spring_security_6_demo.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
-import java.util.ArrayList;
-import java.util.Collection;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 
 @Configuration
-@EnableWebSecurity
 public class SecurityConfig {
+    private final UserService userService;
 
-    @Autowired
-    @Lazy
-    private UserService service; // Assurez-vous que UserService implémente UserDetailsService
+    public SecurityConfig(@Lazy UserService userService) {
+        this.userService = userService;
+    }
 
-//    @Bean
-//    public UserDetailsService userDetailsService() {
-//        // Utilisez votre service personnalisé pour charger l'utilisateur
-//        return username -> {
-//            User user = service.loadUserByUsername(username); // Une méthode personnalisée de service qui charge un utilisateur par nom
-//            if (user == null) {
-//                throw new UsernameNotFoundException("Utilisateur non trouvé : " + username);
-//            }
-//
-//            Collection<GrantedAuthority> authorities = new ArrayList<>();
-//            user.getRoles().forEach(role -> authorities.add(new SimpleGrantedAuthority(role.getRole())));
-//            return new org.springframework.security.core.userdetails.User(user.getUsername(), user.getPassword(), authorities);
-//        };
-//    }
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable) // Désactive CSRF pour simplifier (ne pas désactiver en production sans raison valable)
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS) // Spécifie une gestion de session stateless
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+        return configuration.getAuthenticationManager();
+    }
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userService);
+        authProvider.setPasswordEncoder(passwordEncoder());
+        return authProvider;
+    }
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationManager authenticationManager) throws Exception {
+        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(authenticationManager);
+        jwtAuthenticationFilter.setFilterProcessesUrl("/api/login"); // Définit l'URL d'authentification
+
+        http.csrf().disable()
+                .authenticationProvider(authenticationProvider())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/public/**", "/api/login").permitAll()
+                        .anyRequest().authenticated()
                 )
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/public/**", "/login").permitAll() // Les URL publiques accessibles sans authentification
-                        .requestMatchers(HttpMethod.GET, "/login").permitAll()   // Permet l'accès GET
-                        .requestMatchers(HttpMethod.POST, "/login").permitAll()  // Permet l'accès POST
-                        .requestMatchers("/admin/**").hasRole("ADMIN")          // Accès réservé au rôle ADMIN
-                        .anyRequest().authenticated()                        // Toutes les autres requêtes nécessitent une authentification
-                );
-
-        http.addFilterBefore(new JwtAuthenticationFilter(authenticationManagerBean(http)),
-                UsernamePasswordAuthenticationFilter.class); // Ajoute JwtAuthenticationFilter
+                .addFilter(jwtAuthenticationFilter)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                // Ajout du filtre
+//                .formLogin(form -> form
+//                        .loginPage("/login")
+//                        .defaultSuccessUrl("/users", true) // URL définie après authentification réussie
+//                        .permitAll()
+//                );
 
         return http.build();
     }
+
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    @Bean
-    public AuthenticationManager authenticationManagerBean(HttpSecurity http) throws Exception {
-        AuthenticationManagerBuilder authenticationManagerBuilder =
-                http.getSharedObject(AuthenticationManagerBuilder.class);
 
-//        // Configuration de l'AuthenticationManager
-//        authenticationManagerBuilder
-//                .userDetailsService(userDetailsService())  // Utilise le service personnalisé
-//                .passwordEncoder(passwordEncoder());     // Utilise un encodeur pour valider les mots de passe
-
-        return authenticationManagerBuilder.build(); // Retourne AuthenticationManager configuré
-    }
 }
