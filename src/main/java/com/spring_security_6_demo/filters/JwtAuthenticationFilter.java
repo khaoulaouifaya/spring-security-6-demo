@@ -2,6 +2,7 @@ package com.spring_security_6_demo.filters;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,6 +17,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 import java.io.IOException;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilter {
@@ -48,7 +51,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
         User user = (User) authResult.getPrincipal();
         Algorithm algorithm = Algorithm.HMAC256("mySecret123");
 
-        String jwtToken = JWT.create()
+        String jwtAccesToken = JWT.create()
                 .withSubject(user.getUsername())
                 .withExpiresAt(new Date(System.currentTimeMillis() + 5 * 60 * 1000)) // Expiration dans 5 minutes
                 .withIssuer(request.getRequestURI().toUpperCase()) // L'émetteur du jeton
@@ -56,11 +59,18 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
                         .map(GrantedAuthority::getAuthority)
                         .collect(Collectors.toList())) // Récupère les rôles de l'utilisateur
                 .sign(algorithm);
-
-        response.setHeader("Authorization", "Bearer " + jwtToken);
+        String jwtRefreshToken = JWT.create()
+                .withSubject(user.getUsername())
+                .withExpiresAt(new Date(System.currentTimeMillis() + 15 * 60 * 1000)) // Expiration dans 5 minutes
+                .withIssuer(request.getRequestURI().toUpperCase()) // L'émetteur du jeton
+                .sign(algorithm);
+        Map<String,String> tokens = new HashMap<>();
+        tokens.put("access-token ", jwtAccesToken);
+        tokens.put("refresh-token ", jwtRefreshToken);
+        new ObjectMapper().writeValue(response.getOutputStream(), tokens);
+        response.setContentType("application/json");
         // Définit l'en-tête Authorization avec le token
-      response.setStatus(HttpServletResponse.SC_OK);
-      // chain.doFilter(request, response);
+      //response.setStatus(HttpServletResponse.SC_OK);
 
     }
 }
